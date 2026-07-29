@@ -3,200 +3,121 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Power Breath — قوة التنفس</title>
+<title>دردشة برو - مكالمات وبث</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="/socket.io/socket.io.js"></script>
 <style>
-body {margin:0;padding:0;font-family:Arial,sans-serif;text-align:center;transition:background 0.8s,color 0.8s;}
-header{display:flex;justify-content:center;align-items:center;gap:8px;padding:10px;}
-button{padding:8px 12px;border:none;border-radius:8px;cursor:pointer;}
-.primary{background:#22c1c3;color:#fff;font-weight:700;}
-.theme-zen{background:#e0f7fa;color:#005d63;}
-.theme-galaxy{background:#0d1b2a;color:#e0e7ff;}
-.theme-fire{background:#300;color:#ffd9d4;}
-.bubble{width:180px;height:180px;margin:20px auto;border-radius:50%;display:flex;flex-direction:column;justify-content:center;align-items:center;transition:transform 1.2s ease;background:#fff;border:4px solid rgba(0,0,0,0.2);}
-.bubble.inhale{transform:scale(1.25);}
-.bubble.exhale{transform:scale(0.85);}
-.progress-bar{width:100%;height:8px;background:#ccc;border-radius:4px;margin-top:10px;overflow:hidden;}
-#bar{width:0%;height:100%;background:#22c1c3;}
-.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
-.exercise{background:#e0f7fa;border-left:5px solid #007acc;padding:15px;margin:15px 0;border-radius:8px;}
-.note{font-size:0.9em;color:#555;background:#fff3e0;padding:10px;border-left:4px solid #ffa726;border-radius:5px;margin-top:10px;}
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
+body{font-family:'Tajawal',sans-serif}
 </style>
 </head>
-<body class="theme-zen">
-
-<header>
-  <h1>Power Breath</h1>
-  <button id="langToggleBtn">🌐</button>
-</header>
-
-<main>
-  <div class="controls">
-    <label>اختر التمرين:
-      <select id="exerciseSelect"></select>
-    </label>
-    <label>المدة:
-      <select id="durationSelect">
-        <option value="60">1 دقيقة</option>
-        <option value="180">3 دقائق</option>
-        <option value="300">5 دقائق</option>
-      </select>
-    </label>
-    <button id="startBtn" class="primary">ابدأ</button>
-    <button id="pauseBtn">إيقاف مؤقت</button>
-    <button id="resumeBtn">استئناف</button>
-    <button id="resetBtn">إعادة</button>
-    <button id="themeToggleBtn">🎭</button>
+<body class="bg-[#0f0f0f] text-white h-screen flex flex-col">
+<div class="flex h-full">
+<!-- Login Screen -->
+<div id="login" class="fixed inset-0 bg-[#0f0f0f] z-50 flex items-center justify-center">
+  <div class="bg-zinc-900 p-8 rounded-[2rem] w-[90%] max-w-sm border border-zinc-800">
+    <h1 class="text-3xl font-bold mb-2">مرحبا في دردشة 💬</h1>
+    <p class="text-zinc-400 mb-6">سجل دخولك بالإيميل</p>
+    <input id="email" placeholder="الإيميل" class="w-full p-3 rounded-xl bg-zinc-800 mb-3 outline-none"/>
+    <input id="name" placeholder="اسمك" class="w-full p-3 rounded-xl bg-zinc-800 mb-3 outline-none"/>
+    <input id="pass" type="password" placeholder="كلمة المرور" class="w-full p-3 rounded-xl bg-zinc-800 mb-6 outline-none"/>
+    <button onclick="login()" class="w-full bg-white text-black p-3 rounded-xl font-bold">دخول</button>
   </div>
+</div>
 
-  <div class="bubble" id="bubble">
-    <div class="phase" id="phase">جاهز</div>
-    <div class="count" id="count">00</div>
-    <div class="remaining" id="remaining">باقي 0:00</div>
-    <div class="progress-bar"><div id="bar"></div></div>
+<!-- Sidebar -->
+<div class="w-[360px] bg-zinc-900 border-l border-zinc-800 flex flex-col">
+  <div class="p-4 flex gap-2">
+    <button onclick="createGroup()" class="flex-1 bg-white text-black rounded-xl py-2 font-bold">+ مجموعة جديدة</button>
+    <button onclick="startBroadcast()" class="bg-red-600 rounded-xl px-4 py-2">🔴 بث جماعي</button>
   </div>
+  <div id="chats" class="flex-1 overflow-auto p-2 space-y-1"></div>
+</div>
 
-  <div class="exercise">
-    <h2 id="instrTitle">الإرشادات</h2>
-    <ul id="instrList"></ul>
-    <div class="note" id="affirmation"></div>
+<!-- Chat -->
+<div class="flex-1 flex flex-col">
+  <div class="h-[64px] border-b border-zinc-800 flex items-center justify-between px-6">
+    <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500"></div><div><div id="chatName" class="font-bold">اختر محادثة</div><div class="text-xs text-green-400">متصل</div></div></div>
+    <div class="flex gap-2">
+      <button onclick="startCall('voice')" class="w-10 h-10 rounded-full bg-zinc-800">🎤</button>
+      <button onclick="startCall('video')" class="w-10 h-10 rounded-full bg-zinc-800">📹</button>
+    </div>
   </div>
+  <div id="messages" class="flex-1 overflow-auto p-6 space-y-3"></div>
+  <div class="p-4 flex gap-2 border-t border-zinc-800">
+    <input id="msgInput" placeholder="اكتب رسالة..." class="flex-1 bg-zinc-800 rounded-full px-5 py-3 outline-none"/>
+    <button onclick="send()" class="bg-white text-black w-12 h-12 rounded-full font-bold">➤</button>
+  </div>
+</div>
 
-  <footer>
-    <p id="stats">🔁 جلسات مكتملة: 0 — ⏱ وقت تنفس: 0 دقيقة</p>
-  </footer>
-</main>
+<!-- Call Overlay -->
+<div id="callOverlay" class="hidden fixed inset-0 bg-black/90 z-40 flex flex-col items-center justify-center">
+  <video id="localVideo" autoplay muted class="w-64 h-48 bg-zinc-800 rounded-2xl absolute bottom-10 left-10"></video>
+  <video id="remoteVideo" autoplay class="w-full h-full object-cover"></video>
+  <div class="absolute bottom-10 flex gap-4"><button onclick="endCall()" class="bg-red-600 px-8 py-3 rounded-full">إنهاء</button></div>
+  <div id="callStatus" class="absolute top-10 text-xl">جاري الاتصال...</div>
+</div>
 
+</div>
 <script>
-const modes={
-  energizing:{label:{ar:"🔥 التنفس النشط",en:"Energizing Breath"},phases:[{n:"شهيق",s:2},{n:"زفير",s:2}],theme:"theme-fire",affirmations:["تنفس قوي!","اطلق طاقتك!"]},
-  power:{label:{ar:"💪 Power Breath",en:"Power Breath"},phases:[{n:"شهيق",s:2},{n:"زفير + حركة",s:2,action:true}],theme:"theme-fire",affirmations:["قبض اليدين","اطلق القوة!"]},
-  strength:{label:{ar:"4-2-4",en:"4-2-4 Breath"},phases:[{n:"شهيق",s:4},{n:"حبس",s:2},{n:"زفير",s:4}],theme:"theme-zen",affirmations:["تحكم وثبات"]},
-  focus:{label:{ar:"💡 Box Breathing",en:"Box Breathing"},phases:[{n:"شهيق",s:4},{n:"حبس",s:4},{n:"زفير",s:4},{n:"حبس",s:4}],theme:"theme-galaxy",affirmations:["ركز في المربع"]}
-};
-
-let mode="energizing",running=false,paused=false,phaseIndex=0,phaseRemaining=0,remaining=0,totalTime=0;
-let lang="ar",manualTheme=false;
-const bubble=document.getElementById("bubble"),
-      phaseEl=document.getElementById("phase"),
-      countEl=document.getElementById("count"),
-      remainingEl=document.getElementById("remaining"),
-      instrList=document.getElementById("instrList"),
-      affirmationEl=document.getElementById("affirmation"),
-      bar=document.getElementById("bar"),
-      exerciseSelect=document.getElementById("exerciseSelect"),
-      durationSelect=document.getElementById("durationSelect"),
-      statsEl=document.getElementById("stats");
-
-Object.keys(modes).forEach(k=>{
-  let o=document.createElement("option");
-  o.value=k;
-  o.textContent=modes[k].label[lang];
-  exerciseSelect.appendChild(o);
-});
-// initialize timings from defaults
-totalTime = parseInt(durationSelect.value, 10) || 60;
-remaining = totalTime;
-phaseRemaining = modes[mode].phases[0].s;
-
-function updateInstructions(){
-  instrList.innerHTML="";
-  modes[mode].affirmations.forEach(a=>{
-    let li=document.createElement("li");
-    li.textContent=a;
-    instrList.appendChild(li);
-  });
+let socket, currentRoom=null, user=null;
+function login(){
+  user={email:document.getElementById('email').value, name:document.getElementById('name').value};
+  if(!user.email||!user.name) return alert('اكمل البيانات');
+  document.getElementById('login').style.display='none';
+  initSocket();
+  loadChats();
 }
-
-function updateDisplay(){
-  let phaseName=modes[mode].phases[phaseIndex].n;
-  phaseEl.textContent=phaseName;
-  countEl.textContent=String(phaseRemaining).padStart(2,"0");
-  // show remaining time (support Arabic and English)
-  remainingEl.textContent = (lang === "ar" ? "باقي " : "Remaining ") + Math.floor(remaining/60)+":"+String(remaining%60).padStart(2,"0");
-  // avoid division by zero
-  const pct = totalTime ? (((totalTime-remaining)/totalTime)*100) : 0;
-  bar.style.width = String(Math.min(100, Math.max(0, pct)))+"%";
-  bubble.classList.remove("inhale","exhale");
-  if(phaseName.includes("شهيق")||phaseName.includes("Inhale")) bubble.classList.add("inhale");
-  else if(phaseName.includes("زفير")||phaseName.includes("Exhale")) bubble.classList.add("exhale");
-  affirmationEl.textContent = modes[mode].affirmations[phaseIndex % modes[mode].affirmations.length];
-  if(!manualTheme)document.body.className=modes[mode].theme;
+function initSocket(){
+  socket=io();
+  socket.on('receive_message', addMsg);
+  socket.on('incoming_call', handleIncoming);
+  socket.on('broadcast_started', ()=> alert('🔴 بدأ بث جماعي جديد!'));
 }
-
-let timer;
-function start(){if(running)return;mode=exerciseSelect.value;totalTime=remaining=parseInt(durationSelect.value);phaseIndex=0;phaseRemaining=modes[mode].phases[0].s;running=true;paused=false;updateInstructions();updateDisplay();timer=setInterval(tick,1000);}
-function tick(){
-  if(!running||paused) return;
-  remaining--;
-  phaseRemaining--;
-  if(phaseRemaining<=0){
-    phaseIndex=(phaseIndex+1)%modes[mode].phases.length;
-    phaseRemaining=modes[mode].phases[phaseIndex].s;
-  }
-  if(remaining<=0){
-    stop();
-    phaseEl.textContent = lang==="ar"?"انتهت الجلسة 🎉":"Session Finished 🎉";
-    countEl.textContent = "00";
-    remaining = 0;
-    // show finished time and complete progress
-    remainingEl.textContent = (lang === "ar" ? "باقي " : "Remaining ") + "0:00";
-    bar.style.width = "100%";
-    incrementStats();
-  }
-  updateDisplay();
+let mockChats=[{id:'1',name:'فريق التصميم',avatar:'🎨',last:'تمام نشتغل عليه'},{id:'2',name:'أحمد',avatar:'👨',last:'وينك؟'},{id:'3',name:'مجموعة العائلة',avatar:'👨‍👩‍👧‍👦',last:'الغدا جاهز'}];
+function loadChats(){
+  const c=document.getElementById('chats');
+  c.innerHTML=mockChats.map(ch=>`<div onclick="openChat('${ch.id}','${ch.name}')" class="p-3 rounded-2xl hover:bg-zinc-800 cursor-pointer flex gap-3"><div class="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-xl">${ch.avatar}</div><div class="flex-1"><div class="font-bold">${ch.name}</div><div class="text-sm text-zinc-400">${ch.last}</div></div></div>`).join('');
 }
-function pause(){paused=true;}
-function resume(){if(running)paused=false;}
-function stop(){running=false;paused=false;clearInterval(timer);}
-function reset(){stop();phaseIndex=0;phaseRemaining=modes[mode].phases[0].s;remaining=totalTime;updateDisplay();}
-function toggleLang(){
-  lang = lang==="ar"?"en":"ar";
-  // update exercise option labels
-  Object.keys(modes).forEach(k=>{
-    const opt = exerciseSelect.querySelector(`option[value="${k}"]`);
-    if(opt) opt.textContent = modes[k].label[lang];
-  });
-  // update some UI text
-  document.getElementById('startBtn').textContent = lang === 'ar' ? 'ابدأ' : 'Start';
-  document.getElementById('pauseBtn').textContent = lang === 'ar' ? 'إيقاف مؤقت' : 'Pause';
-  document.getElementById('resumeBtn').textContent = lang === 'ar' ? 'استئناف' : 'Resume';
-  document.getElementById('resetBtn').textContent = lang === 'ar' ? 'إعادة' : 'Reset';
-  document.getElementById('instrTitle').textContent = lang === 'ar' ? 'الإرشادات' : 'Instructions';
-  // duration options
-  const opts = durationSelect.querySelectorAll('option');
-  if(opts[0]) opts[0].textContent = lang === 'ar' ? '1 دقيقة' : '1 min';
-  if(opts[1]) opts[1].textContent = lang === 'ar' ? '3 دقائق' : '3 min';
-  if(opts[2]) opts[2].textContent = lang === 'ar' ? '5 دقائق' : '5 min';
-  updateDisplay();
-  updateInstructions();
+function openChat(id,name){
+  currentRoom=id; document.getElementById('chatName').innerText=name; socket.emit('join_room',id); document.getElementById('messages').innerHTML=`<div class="text-center text-zinc-500 text-sm">بدأت المحادثة مع ${name}</div>`;
 }
-function toggleTheme(){manualTheme=true;const themes=["theme-zen","theme-galaxy","theme-fire"];let i=themes.indexOf(document.body.className);document.body.className=themes[(i+1)%themes.length];}
-// Stats utilities: load and increment safely
-function loadStats(){
-  const s = JSON.parse(localStorage.getItem('stats') || '{"sessions":0,"minutes":0}');
-  if(lang === 'ar') statsEl.textContent = `🔁 جلسات مكتملة: ${s.sessions} — ⏱ وقت تنفس: ${s.minutes} دقيقة`;
-  else statsEl.textContent = `🔁 Sessions: ${s.sessions} — ⏱ Breath time: ${s.minutes} min`;
-  return s;
+function send(){
+  const inp=document.getElementById('msgInput'); if(!inp.value||!currentRoom) return;
+  const data={roomId:currentRoom, content:inp.value, sender:user.name, time:new Date().toLocaleTimeString()};
+  socket.emit('send_message',data); addMsg(data); inp.value='';
 }
-
-function incrementStats(){
-  const s = JSON.parse(localStorage.getItem('stats') || '{"sessions":0,"minutes":0}');
-  s.sessions++;
-  s.minutes += Math.floor(totalTime/60);
-  localStorage.setItem('stats', JSON.stringify(s));
-  loadStats();
+function addMsg(d){
+  const m=document.getElementById('messages'); const isMe=d.sender===user?.name;
+  m.innerHTML+=`<div class="flex ${isMe?'justify-end':''}"><div class="${isMe?'bg-white text-black':'bg-zinc-800'} px-4 py-2 rounded-[1.2rem] max-w-[70%]">${d.content}</div></div>`; m.scrollTop=m.scrollHeight;
 }
-
-// show stored stats on load
-loadStats();
-
-document.getElementById("startBtn").addEventListener("click",start);
-document.getElementById("pauseBtn").addEventListener("click",pause);
-document.getElementById("resumeBtn").addEventListener("click",resume);
-document.getElementById("resetBtn").addEventListener("click",reset);
-document.getElementById("langToggleBtn").addEventListener("click",toggleLang);
-document.getElementById("themeToggleBtn").addEventListener("click",toggleTheme);
+function createGroup(){
+  const name=prompt('اسم المجموعة:'); if(!name) return;
+  mockChats.unshift({id:Date.now().toString(),name,avatar:'👥',last:'تم إنشاء المجموعة'}); loadChats();
+  fetch('/api/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,members:[],createdBy:user.email})});
+}
+let localStream;
+async function startCall(type){
+  document.getElementById('callOverlay').classList.remove('hidden');
+  document.getElementById('callStatus').innerText= type==='video'?'مكالمة فيديو...':'مكالمة صوتية...';
+  try{
+    localStream=await navigator.mediaDevices.getUserMedia({video:type==='video',audio:true});
+    document.getElementById('localVideo').srcObject=localStream;
+  }catch(e){alert('الكاميرا/المايك غير متاح');}
+}
+function endCall(){
+  document.getElementById('callOverlay').classList.add('hidden');
+  if(localStream) localStream.getTracks().forEach(t=>t.stop());
+  socket.emit('end_call',{to:currentRoom});
+}
+function handleIncoming({from, type}){ if(confirm(`مكالمة ${type} واردة، ترد؟`)) startCall(type); }
+function startBroadcast(){
+  if(!currentRoom) return alert('اختر مجموعة أولا');
+  socket.emit('start_broadcast',{roomId:currentRoom,broadcasterId:user.email});
+  startCall('video');
+  alert('🔴 أنت الآن تبث مباشر لكل أعضاء الغرفة');
+}
+document.getElementById('msgInput').addEventListener('keydown',e=>{if(e.key==='Enter') send()});
 </script>
-
 </body>
 </html>
